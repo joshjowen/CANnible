@@ -146,12 +146,24 @@ int main(int argc, char* argv[])
             sendJson["port"] = std::string(ifr.ifr_name);
             
             std::ostringstream can_id;
-            can_id << std::setfill('0') << std::setw(2) << std::hex << (int)(frame_rd.can_id & ~CAN_EFF_FLAG);
+            int width = 3;
+            int ican_id = (frame_rd.can_id & ~CAN_EFF_FLAG);
+
+            if (ican_id > 0x7FF)
+            {
+              width = 8;
+            }
+            
+            can_id << std::setfill('0') << std::setw(width) << std::hex << ican_id;
             sendJson["id"] = can_id.str();
 
             std::ostringstream can_data;
             for (int i = 0; i < frame_rd.can_dlc; i++)
             {
+              if (i > 0)
+              {
+                can_data << " ";
+              }
               can_data << std::setfill('0') << std::setw(2) << std::hex << (int)frame_rd.data[i];
             }
             sendJson["data"] = can_data.str();

@@ -7,6 +7,11 @@
   <table id="cantable">
     <tr><td><b>CAN Port</b></td><td><b>Message ID</b></td><td><b>Data</b></td></tr>
   </table>
+  <hr/>
+  <b id="title"></b><br/>
+  <span id="hexspan" style="white-space:pre;"></span>
+  <br/>
+  <span id="binspan" style="white-space:pre;"></span>
 </body>
 <script>
   'use strict';
@@ -18,6 +23,33 @@
   }
   let socket = new WebSocket("ws://" + ws_url + ":8081");
   
+  var title = document.getElementById("title");
+  var hex_row = document.getElementById("hexspan");
+  var bin_row = document.getElementById("binspan");
+
+  var watch_row = "";
+
+  function putBase(elem)
+  {
+    var hex_str = "";
+    var bin_str = "";
+
+    elem.cells[2].innerText.split(" ").forEach(str => {
+      hex_str += "   " + str + "    ";
+      bin_str += (parseInt(str, 16).toString(2)).padStart(8, '0') + " ";
+    })
+
+    hex_row.innerText = hex_str;
+    bin_row.innerText = bin_str;
+  };
+
+  function setBase(elem)
+  {
+    watch_row = elem.id;
+    title.innerText = elem.id;
+    putBase(elem);
+  };
+
   socket.onopen = function(e)
   {
     socket.send("{\"can_port\": \"can0\"}");
@@ -27,10 +59,10 @@
   {
     if (event.wasClean)
     {
-      alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+      alert(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
     } else 
     {
-      alert('[close] Connection died');
+      alert('Connection died');
     }
   };
   
@@ -48,12 +80,17 @@
       if (row != null)
       {
         row.cells[2].innerHTML = msg.data;
+        if (watch_row == row.id)
+        {
+          putBase(row);
+        }
       }
       else
       {
         var cantable = document.getElementById("cantable");
         row = cantable.insertRow(-1);
         row.id = msg.id;
+        row.onclick = function() {setBase(this)};
         var cell0 = row.insertCell(0);
         var cell1 = row.insertCell(1);
         var cell2 = row.insertCell(2);

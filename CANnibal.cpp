@@ -146,13 +146,13 @@ int main(int argc, char* argv[])
             sendJson["port"] = std::string(ifr.ifr_name);
             
             std::ostringstream can_id;
-            can_id << std::hex << (int)frame_rd.can_id;
+            can_id << std::setfill('0') << std::setw(2) << std::hex << (int)(frame_rd.can_id & ~CAN_EFF_FLAG);
             sendJson["id"] = can_id.str();
 
             std::ostringstream can_data;
             for (int i = 0; i < frame_rd.can_dlc; i++)
             {
-              can_data << std::hex << (int)frame_rd.data[i];
+              can_data << std::setfill('0') << std::setw(2) << std::hex << (int)frame_rd.data[i];
             }
             sendJson["data"] = can_data.str();
 
@@ -191,8 +191,8 @@ void* ws_loop(void*)
 {
   try
   {
-    ws_server.set_access_channels(websocketpp::log::alevel::fail);
-    ws_server.clear_access_channels(websocketpp::log::alevel::fail);
+    ws_server.set_access_channels(websocketpp::log::alevel::none);
+    ws_server.clear_access_channels(websocketpp::log::alevel::none);
     ws_server.init_asio();
     ws_server.set_message_handler(
       websocketpp::lib::bind(&wsMessageCB, &ws_server,

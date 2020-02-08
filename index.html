@@ -1,27 +1,73 @@
 <!DOCTYPE html>
+<html>
+<head>
+    <title>CANnible</title>
+</head>
+<body>
+  <table id="cantable">
+    <tr><td><b>CAN Port</b></td><td><b>Message ID</b></td><td><b>Data</b></td></tr>
+  </table>
+</body>
 <script>
-'use strict';
+  'use strict';
+  
+  let socket = new WebSocket("ws://localhost:8081");
+  
+  socket.onopen = function(e)
+  {
+    socket.send("{\"can_port\": \"can0\"}");
+  };
+  
+  socket.onclose = function(event)
+  {
+    if (event.wasClean)
+    {
+      alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+    } else 
+    {
+      alert('[close] Connection died');
+    }
+  };
+  
+  socket.onerror = function(error)
+  {
+    alert(`[error] ${error.message}`);
+  };
 
-let socket = new WebSocket("ws://localhost:8081");
-
-socket.onopen = function(e) {
-  alert("[open] Connection established");
-  socket.send("{\"can_port\": \"can0\"}");
-};
-
-socket.onmessage = function(event) {
-  alert(`${event.data}`);
-};
-
-socket.onclose = function(event) {
-  if (event.wasClean) {
-    alert(`[close] Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-  } else {
-    alert('[close] Connection died');
-  }
-};
-
-socket.onerror = function(error) {
-  alert(`[error] ${error.message}`);
-};
-</script>
+  socket.onmessage = function(event)
+  {
+    var msg = JSON.parse(event.data);
+    if (msg.message == null)
+    {
+      var row = document.getElementById(msg.id);
+      if (row != null)
+      {
+        row.cells[2].innerHTML = msg.data;
+      }
+      else
+      {
+        var cantable = document.getElementById("cantable");
+        row = cantable.insertRow(-1);
+        row.id = msg.id;
+        var cell0 = row.insertCell(0);
+        var cell1 = row.insertCell(1);
+        var cell2 = row.insertCell(2);
+        cell0.innerHTML = msg.port;
+        cell1.innerHTML = msg.id;
+        cell2.innerHTML = msg.data;
+      }
+    }
+    else
+    {
+      if (msg.success)
+      {
+        console.log(`${msg.message}`);
+      }
+      else
+      {
+        alert(`${msg.message}`);
+      }
+    }
+  };
+  </script>
+</html>

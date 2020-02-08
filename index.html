@@ -11,7 +11,12 @@
 <script>
   'use strict';
   
-  let socket = new WebSocket("ws://localhost:8081");
+  var ws_url = window.location.host;
+  if (!ws_url)
+  {
+    ws_url = "localhost";
+  }
+  let socket = new WebSocket("ws://" + ws_url + ":8081");
   
   socket.onopen = function(e)
   {

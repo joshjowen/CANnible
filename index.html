@@ -3,15 +3,36 @@
 <head>
     <title>CANnible</title>
 </head>
+<style>
+th, td {
+  text-align:left;
+  padding-right:3em;
+}
+#cantable td {
+    cursor: pointer;
+}
+.roboto {
+  font-family:monospace;
+  white-space:pre;
+}
+#bitspan, #bytespan {
+  color:darkgrey;
+}
+</style>
 <body>
+  <h2>Live Feed</h2>
   <table id="cantable">
-    <tr><td><b>CAN Port</b></td><td><b>Message ID</b></td><td><b>Data</b></td></tr>
+    <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
   </table>
   <hr/>
-  <b id="title"></b><br/>
-  <span id="hexspan" style="white-space:pre;"></span>
+  <h2>Message Analysis</h2>
+  <span id="bytespan" class="roboto"></span>
   <br/>
-  <span id="binspan" style="white-space:pre;"></span>
+  <span id="hexspan" class="roboto"></span>
+  <br/>
+  <span id="binspan" class="roboto"></span>
+  <br/>
+  <span id="bitspan" class="roboto"></span>
 </body>
 <script>
   'use strict';
@@ -23,30 +44,46 @@
   }
   let socket = new WebSocket("ws://" + ws_url + ":8081");
   
-  var title = document.getElementById("title");
   var hex_row = document.getElementById("hexspan");
   var bin_row = document.getElementById("binspan");
+  var bit_row = document.getElementById("bitspan");
+  var byte_row = document.getElementById("bytespan");
 
-  var watch_row = "";
+  var watch_row;
+  var bin_title = "Bin:  ";
+  var bin_str;
 
   function putBase(elem)
   {
-    var hex_str = "";
-    var bin_str = "";
+    var hex_str =   "Hex:  ";
+    var bit_str =   "Bit:  ";
+    var byte_str =  "Byte: ";
+
+    var byte_count = 0;
+    bin_str = "";
 
     elem.cells[2].innerText.split(" ").forEach(str => {
       hex_str += "   " + str + "    ";
       bin_str += (parseInt(str, 16).toString(2)).padStart(8, '0') + " ";
+      bit_str += "01234567 ";
+      byte_str += "    " + byte_count + "    ";
+      byte_count += 1;
     })
 
     hex_row.innerText = hex_str;
-    bin_row.innerText = bin_str;
+    bin_row.innerText = bin_title + bin_str;
+    bit_row.innerText = bit_str;
+    byte_row.innerText = byte_str;
   };
 
   function setBase(elem)
   {
-    watch_row = elem.id;
-    title.innerText = elem.id;
+    if (watch_row)
+    {
+      watch_row.style.backgroundColor = 'transparent';
+    }
+    watch_row = elem;
+    watch_row.style.backgroundColor = 'royalblue';
     putBase(elem);
   };
 
@@ -76,11 +113,11 @@
     var msg = JSON.parse(event.data);
     if (msg.message == null)
     {
-      var row = document.getElementById(msg.id);
+      var row = document.getElementById(msg.port + ": " + msg.id);
       if (row != null)
       {
         row.cells[2].innerHTML = msg.data;
-        if (watch_row == row.id)
+        if (watch_row.id == row.id)
         {
           putBase(row);
         }
@@ -89,7 +126,7 @@
       {
         var cantable = document.getElementById("cantable");
         row = cantable.insertRow(-1);
-        row.id = msg.id;
+        row.id = msg.port + ": " + msg.id;
         row.onclick = function() {setBase(this)};
         var cell0 = row.insertCell(0);
         var cell1 = row.insertCell(1);

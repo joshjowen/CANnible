@@ -28,7 +28,8 @@
 // build deps: cmake libwebsocketpp-dev libboost-system-dev libjsoncpp-dev
 // deps: libjsoncpp1 can-utils
 
-std::vector<std::string> can_ports = {};
+std::string can_port = "any";
+std::vector<std::string> avail_ports;
 int ws_port = 8081;
 
 int can_socket;
@@ -45,6 +46,8 @@ void ws_send(std::string message);
 void wsMessageCB(websocketpp::server<websocketpp::config::asio>* s,
                  websocketpp::connection_hdl hdl,
                  websocketpp::server<websocketpp::config::asio>::message_ptr msg);
+
+std::vector<std::string> get_can_ports(void);
 
 bool open_can_socket(void);
 
@@ -93,6 +96,8 @@ int main(int argc, char* argv[])
     }
   }
 
+  avail_ports = get_can_ports();
+
   if (!open_can_socket())
   {
     return -1;
@@ -115,7 +120,7 @@ int main(int argc, char* argv[])
 
   std::string can_string;
   Json::FastWriter fastWriter;
-  
+
   while (!kill_main)
   {
     struct can_frame frame_rd;
@@ -138,43 +143,46 @@ int main(int argc, char* argv[])
         ifr.ifr_ifindex = addr.can_ifindex;
         ioctl(can_socket, SIOCGIFNAME, &ifr);
 
-        for (int n = 0; n < can_ports.size(); n++)
+        Json::Value sendJson;
+        if ((strcmp(can_port.c_str(), "any") == 0) || (strcmp(can_port.c_str(), ifr.ifr_name) == 0))
         {
-          Json::Value sendJson;
-          if (strcmp(can_ports[n].c_str(), ifr.ifr_name) == 0)
+          sendJson["port"] = std::string(ifr.ifr_name);
+          
+          std::ostringstream can_id;
+          int width = 3;
+          int ican_id = (frame_rd.can_id & ~CAN_EFF_FLAG);
+
+          if (ican_id > 0x7FF)
           {
-            sendJson["port"] = std::string(ifr.ifr_name);
-            
-            std::ostringstream can_id;
-            int width = 3;
-            int ican_id = (frame_rd.can_id & ~CAN_EFF_FLAG);
+            width = 8;
+          }
+          
+          can_id << std::setfill('0') << std::setw(width) << std::hex << ican_id;
+          sendJson["id"] = can_id.str();
 
-            if (ican_id > 0x7FF)
+          std::ostringstream can_data;
+          for (int i = 0; i < frame_rd.can_dlc; i++)
+          {
+            if (i > 0)
             {
-              width = 8;
+              can_data << " ";
             }
-            
-            can_id << std::setfill('0') << std::setw(width) << std::hex << ican_id;
-            sendJson["id"] = can_id.str();
+            can_data << std::setfill('0') << std::setw(2) << std::hex << (int)frame_rd.data[i];
+          }
+          sendJson["data"] = can_data.str();
 
-            std::ostringstream can_data;
-            for (int i = 0; i < frame_rd.can_dlc; i++)
-            {
-              if (i > 0)
-              {
-                can_data << " ";
-              }
-              can_data << std::setfill('0') << std::setw(2) << std::hex << (int)frame_rd.data[i];
-            }
-            sendJson["data"] = can_data.str();
+          can_string = fastWriter.write(sendJson);
 
-            can_string = fastWriter.write(sendJson);
-
-            ws_send(can_string);
-
-            break;
+          ws_send(can_string);
+        }
+        else
+        {
+          {
+            std::cout << "\"" << can_port << "\" != \"" << ifr.ifr_name << "\"" << std::endl;
           }
         }
+        
+
       }
     }
   }
@@ -251,18 +259,21 @@ void wsMessageCB(websocketpp::server<websocketpp::config::asio>* serv,
 
   if (reader.parse(msg->get_payload().c_str(), recievedJson))
   {
-    std::string can_port = recievedJson.get("can_port", "").asString();
+    std::string port_name = recievedJson.get("can_port", "").asString();
 
-    if (!can_port.empty())
+    if (!port_name.empty())
     {
-      can_ports.clear();
-      can_ports.push_back(can_port);
+      can_port = port_name;
       responseJson["success"] = true;
-      responseJson["message"] = "can_ports set to " + can_port;
+      responseJson["message"] = "can_port set to " + can_port;
     }
     else
     {
       responseJson["success"] = false;
+      for (int i = 0; i < avail_ports.size(); i++)
+      {
+        responseJson["ports"][i] = avail_ports[i];
+      }
       responseJson["message"] = "Invalid can_port provided";
     }
   }
@@ -307,6 +318,37 @@ bool open_can_socket(void)
     return false;
   }
   return true;
+}
+
+
+std::vector<std::string> get_can_ports(void)
+{
+  std::vector<std::string> ports;
+  int tmp_socket = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+  if (tmp_socket < 0)
+  {
+    std::cerr << "Failed to open a CAN socket!" << std::endl;
+    return ports;
+  }
+
+  ports.push_back("any");
+  struct if_nameindex *ifnameindex, *ifnameindex0;
+  ifnameindex0 = if_nameindex();
+
+  for (ifnameindex = ifnameindex0; ifnameindex->if_name != NULL; ifnameindex++)
+  {
+    struct sockaddr_can addr;
+    addr.can_family = AF_CAN;
+    addr.can_ifindex = ifnameindex->if_index;
+    if (bind(tmp_socket, (struct sockaddr *)&addr, sizeof(addr)) >= 0)
+    {
+      ports.push_back(std::string(ifnameindex->if_name));
+    }
+  }
+  if_freenameindex(ifnameindex0);
+
+  close(tmp_socket);
+  return ports;
 }
 
 

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CANnible</title>
+    <title>CANnibal</title>
 </head>
 <style>
 th, td {
@@ -21,6 +21,9 @@ th, td {
 </style>
 <body>
   <h2>Live Feed</h2>
+  <label for="can_ports">Port:</label>
+  <select id="can_ports">
+  </select>
   <table id="cantable">
     <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
   </table>
@@ -33,6 +36,9 @@ th, td {
   <span id="binspan" class="roboto"></span>
   <br/>
   <span id="bitspan" class="roboto"></span>
+
+  <!-- <br/>
+  <span id="calcspan" class="roboto"></span> -->
 </body>
 <script>
   'use strict';
@@ -52,6 +58,30 @@ th, td {
   var watch_row;
   var bin_title = "Bin:  ";
   var bin_str;
+
+  function setCalc(elem)
+  {
+    var bitindex = 1;
+    var byteindex = 1;
+    var bitwidth = 12;
+    var bigendian = true;
+
+    var incbyte = bigendian ? -1 : 1;
+    var bytenum = Math.floor(bitwidth / 8);
+
+    var bytes = bin_str.split(" ");
+    var byte = byteindex;
+
+    var intstring = "";
+    for (var bytecount = 0; bytecount <= bytenum; bytecount++)
+    {
+      intstring += bytes[byte];
+      byte += incbyte;
+    }
+
+    intstring = intstring.substr(bitindex, bitwidth);
+    elem.innerText = parseInt(intstring, 2);
+  }
 
   function putBase(elem)
   {
@@ -74,6 +104,9 @@ th, td {
     bin_row.innerText = bin_title + bin_str;
     bit_row.innerText = bit_str;
     byte_row.innerText = byte_str;
+
+    // var calc_row = document.getElementById("calcspan");
+    // setCalc(calc_row);
   };
 
   function setBase(elem)
@@ -87,9 +120,16 @@ th, td {
     putBase(elem);
   };
 
+  function setPort(port)
+  {
+    var portmessage = {"can_port": port};
+
+    socket.send(JSON.stringify(portmessage));
+  }
+
   socket.onopen = function(e)
   {
-    socket.send("{\"can_port\": \"can0\"}");
+    setPort("");
   };
   
   socket.onclose = function(event)
@@ -111,13 +151,14 @@ th, td {
   socket.onmessage = function(event)
   {
     var msg = JSON.parse(event.data);
+
     if (msg.message == null)
     {
-      var row = document.getElementById(msg.port + ": " + msg.id);
+      var row = document.getElementById(msg.port + "_" + msg.id);
       if (row != null)
       {
         row.cells[2].innerHTML = msg.data;
-        if (watch_row.id == row.id)
+        if (watch_row && watch_row.id == row.id)
         {
           putBase(row);
         }
@@ -126,7 +167,7 @@ th, td {
       {
         var cantable = document.getElementById("cantable");
         row = cantable.insertRow(-1);
-        row.id = msg.port + ": " + msg.id;
+        row.id = msg.port + "_" + msg.id;
         row.onclick = function() {setBase(this)};
         var cell0 = row.insertCell(0);
         var cell1 = row.insertCell(1);
@@ -141,6 +182,20 @@ th, td {
       if (msg.success)
       {
         console.log(`${msg.message}`);
+      }
+      else if (msg.ports)
+      {
+        var portselect = document.getElementById("can_ports");
+        for (var i = 0; i < msg.ports.length; i++)
+        {
+          var option = document.createElement("option");
+          option.text = msg.ports[i];
+          option.value = msg.ports[i];
+          portselect.add(option);
+        }
+
+        portselect.selectedIndex = 0;
+        portselect.onchange = function() {setPort(this.value)};
       }
       else
       {

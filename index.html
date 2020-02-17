@@ -9,7 +9,9 @@ th, td {
   padding-right:3em;
 }
 #cantable td {
-    cursor: pointer;
+  cursor: pointer;
+  font-family:monospace;
+  white-space:pre;
 }
 .roboto {
   font-family:monospace;
@@ -37,8 +39,8 @@ th, td {
   <br/>
   <span id="bitspan" class="roboto"></span>
 
-  <!-- <br/>
-  <span id="calcspan" class="roboto"></span> -->
+  <br/>
+  <span id="calcspan" class="roboto"></span>
 </body>
 <script>
   'use strict';
@@ -61,25 +63,34 @@ th, td {
 
   function setCalc(elem)
   {
-    var bitindex = 1;
+    var bitindex =  0;
     var byteindex = 1;
-    var bitwidth = 12;
+    var bitwidth = 14;
     var bigendian = true;
 
     var incbyte = bigendian ? -1 : 1;
-    var bytenum = Math.floor(bitwidth / 8);
+    var bytenum = Math.ceil(bitwidth / 8);
 
     var bytes = bin_str.split(" ");
     var byte = byteindex;
 
     var intstring = "";
-    for (var bytecount = 0; bytecount <= bytenum; bytecount++)
+
+    if (bigendian)
     {
-      intstring += bytes[byte];
-      byte += incbyte;
+      for (var bytecount = 0; bytecount < bytenum; bytecount++)
+      {
+        intstring = bytes[byte] + intstring;
+        byte += incbyte;
+      }
+    }
+    else
+    {
+      intstring = bytes.join("").substr((byteindex * 8));
     }
 
-    intstring = intstring.substr(bitindex, bitwidth);
+    var startbit = bigendian ? (bitindex + (bytenum * 8) - bitwidth) : bitindex;
+    intstring = intstring.substr(startbit, bitwidth);
     elem.innerText = parseInt(intstring, 2);
   }
 
@@ -105,8 +116,8 @@ th, td {
     bit_row.innerText = bit_str;
     byte_row.innerText = byte_str;
 
-    // var calc_row = document.getElementById("calcspan");
-    // setCalc(calc_row);
+    var calc_row = document.getElementById("calcspan");
+    setCalc(calc_row);
   };
 
   function setBase(elem)

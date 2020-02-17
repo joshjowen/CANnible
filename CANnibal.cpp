@@ -175,14 +175,6 @@ int main(int argc, char* argv[])
 
           ws_send(can_string);
         }
-        else
-        {
-          {
-            std::cout << "\"" << can_port << "\" != \"" << ifr.ifr_name << "\"" << std::endl;
-          }
-        }
-        
-
       }
     }
   }

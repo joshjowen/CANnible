@@ -38,9 +38,18 @@ th, td {
   <span id="binspan" class="roboto"></span>
   <br/>
   <span id="bitspan" class="roboto"></span>
-
   <br/>
-  <span id="calcspan" class="roboto"></span>
+  <br/>
+  <label for="byteindex" class="roboto">Start Byte:</label>
+  <input type="number" id="byteindex" name="byteindex" min="0" max="7" step="1" value="0">
+  <label for="bitindex" class="roboto">Start Bit:</label>
+  <input type="number" id="bitindex" name="bitindex" min="0" max="7" step="1"  value="0">
+  <label for="bitwidth" class="roboto">Bit width:</label>
+  <input type="number" id="bitwidth" name="bitwidth" min="1" max="64" step="1"  value="64">
+  <label for="bigendian" class="roboto">Big Endian:</label>
+  <input type="checkbox" id="bigendian" name="bigendian">
+  <label for="valspan" class="roboto">Value:</label>
+  <span id="valspan" class="roboto"></span>
 </body>
 <script>
   'use strict';
@@ -48,7 +57,7 @@ th, td {
   var ws_url = window.location.host;
   if (!ws_url)
   {
-    ws_url = "localhost";
+    ws_url = "10.52.0.106";
   }
   let socket = new WebSocket("ws://" + ws_url + ":8081");
   
@@ -61,12 +70,12 @@ th, td {
   var bin_title = "Bin:  ";
   var bin_str;
 
-  function setCalc(elem)
+  function setVal(elem)
   {
-    var bitindex =  0;
-    var byteindex = 1;
-    var bitwidth = 14;
-    var bigendian = true;
+    var bitindex = parseInt(document.getElementById("bitindex").value,10);
+    var byteindex = parseInt(document.getElementById("byteindex").value,10);
+    var bitwidth = parseInt(document.getElementById("bitwidth").value,10);
+    var bigendian = document.getElementById("bigendian").checked;
 
     var incbyte = bigendian ? -1 : 1;
     var bytenum = Math.ceil(bitwidth / 8);
@@ -76,20 +85,13 @@ th, td {
 
     var intstring = "";
 
-    if (bigendian)
-    {
       for (var bytecount = 0; bytecount < bytenum; bytecount++)
       {
         intstring = bytes[byte] + intstring;
         byte += incbyte;
       }
-    }
-    else
-    {
-      intstring = bytes.join("").substr((byteindex * 8));
-    }
 
-    var startbit = bigendian ? (bitindex + (bytenum * 8) - bitwidth) : bitindex;
+    var startbit = (bitindex + (bytenum * 8) - bitwidth);
     intstring = intstring.substr(startbit, bitwidth);
     elem.innerText = parseInt(intstring, 2);
   }
@@ -116,8 +118,8 @@ th, td {
     bit_row.innerText = bit_str;
     byte_row.innerText = byte_str;
 
-    var calc_row = document.getElementById("calcspan");
-    setCalc(calc_row);
+    var calc_row = document.getElementById("valspan");
+    setVal(calc_row);
   };
 
   function setBase(elem)

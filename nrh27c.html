@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CANnibal</title>
+</head>
+<style>
+th, td {
+  text-align:left;
+  padding-right:3em;
+}
+#cantable td {
+  cursor: pointer;
+  font-family:monospace;
+  white-space:pre;
+}
+.roboto {
+  font-family:monospace;
+  white-space:pre;
+}
+.hidden {
+  display: none;
+  font-family:monospace;
+  white-space:pre;
+}
+#bitspan, #bytespan {
+  color:darkgrey;
+}
+</style>
+<body>
+  <h2>Live Feed</h2>
+  <label for="can_ports">Port:</label>
+  <select id="can_ports">
+  </select>
+  <table id="cantable">
+    <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
+  </table>
+  <hr/>
+  <span id="bytespan" class="hidden"></span>
+  <span id="hexspan" class="hidden"></span>
+  <span id="binspan" class="roboto"></span>
+  <span id="bitspan" class="hidden"></span>
+  <br/>
+  <label for="val1span" class="roboto">Channel 1:</label>
+  <span id="val1span" class="roboto"></span>
+  <br/>
+  <label for="val2span" class="roboto">Channel 2:</label>
+  <span id="val2span" class="roboto"></span>
+  <br/>
+  <label for="sumspan" class="roboto">Sum:</label>
+  <span id="sumspan" class="roboto"></span>
+  <br/>
+  <label for="errorspan" class="roboto" style="font-weight:bold;">Error:</label>
+  <span id="errorspan" class="roboto" style="font-weight:bold;"></span>
+</body>
+<script>
+  'use strict';
+  
+  var ws_url = window.location.host;
+  if (!ws_url)
+  {
+    ws_url = "localhost";
+  }
+  let socket = new WebSocket("ws://" + ws_url + ":8081");
+  
+  var hex_row = document.getElementById("hexspan");
+  var bin_row = document.getElementById("binspan");
+  var bit_row = document.getElementById("bitspan");
+  var byte_row = document.getElementById("bytespan");
+
+  var watch_row;
+  var bin_title = "Binary:  ";
+  var bin_str;
+
+  function setVal(elem, byteindex, bitindex, bitwidth, bigendian)
+  {
+    var incbyte = bigendian ? -1 : 1;
+    var bytenum = Math.ceil(bitwidth / 8);
+
+    var bytes = bin_str.split(" ");
+    var byte = byteindex;
+
+    var intstring = "";
+
+      for (var bytecount = 0; bytecount < bytenum; bytecount++)
+      {
+        intstring = bytes[byte] + intstring;
+        byte += incbyte;
+      }
+
+    var startbit = (bitindex + (bytenum * 8) - bitwidth);
+    intstring = intstring.substr(startbit, bitwidth);
+    elem.innerText = parseInt(intstring, 2);
+  }
+
+  function putBase(elem)
+  {
+    var hex_str =   "Hex:     ";
+    var bit_str =   "Bit:     ";
+    var byte_str =  "Byte:    ";
+
+    var byte_count = 0;
+    bin_str = "";
+
+    elem.cells[2].innerText.split(" ").forEach(str => {
+      hex_str += "   " + str + "    ";
+      bin_str += (parseInt(str, 16).toString(2)).padStart(8, '0') + " ";
+      bit_str += "01234567 ";
+      byte_str += "    " + byte_count + "    ";
+      byte_count += 1;
+    })
+
+    hex_row.innerText = hex_str;
+    bin_row.innerText = bin_title + bin_str;
+    bit_row.innerText = bit_str;
+    byte_row.innerText = byte_str;
+
+    var calc_row1 = document.getElementById("val1span");
+    setVal(calc_row1, 1, 0, 14, true);
+    var calc_row2 = document.getElementById("val2span");
+    setVal(calc_row2, 3, 0, 14, true);
+
+    var sum = parseInt(calc_row1.innerText, 10) + parseInt(calc_row2.innerText, 10);
+
+    var sum_row = document.getElementById("sumspan");
+    sum_row.innerText = sum;
+    var error_row = document.getElementById("errorspan");
+    error_row.innerText = sum - 0x3FFF;
+  };
+
+  function setBase(elem)
+  {
+    if (watch_row)
+    {
+      watch_row.style.backgroundColor = 'transparent';
+    }
+    watch_row = elem;
+    watch_row.style.backgroundColor = 'royalblue';
+    putBase(elem);
+  };
+
+  function setPort(port)
+  {
+    var portmessage = {"can_port": port};
+
+    socket.send(JSON.stringify(portmessage));
+  }
+
+  socket.onopen = function(e)
+  {
+    setPort("");
+  };
+  
+  socket.onclose = function(event)
+  {
+    if (event.wasClean)
+    {
+      alert(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
+    } else 
+    {
+      alert('Connection died');
+    }
+  };
+  
+  socket.onerror = function(error)
+  {
+    alert(`[error] ${error.message}`);
+  };
+
+  socket.onmessage = function(event)
+  {
+    var msg = JSON.parse(event.data);
+
+    if (msg.message == null)
+    {
+      var row = document.getElementById(msg.port + "_" + msg.id);
+      if (row != null)
+      {
+        row.cells[2].innerHTML = msg.data;
+        if (watch_row && watch_row.id == row.id)
+        {
+          putBase(row);
+        }
+      }
+      else
+      {
+        var cantable = document.getElementById("cantable");
+        row = cantable.insertRow(-1);
+        row.id = msg.port + "_" + msg.id;
+        row.onclick = function() {setBase(this)};
+        var cell0 = row.insertCell(0);
+        var cell1 = row.insertCell(1);
+        var cell2 = row.insertCell(2);
+        cell0.innerHTML = msg.port;
+        cell1.innerHTML = msg.id;
+        cell2.innerHTML = msg.data;
+      }
+    }
+    else
+    {
+      if (msg.success)
+      {
+        console.log(`${msg.message}`);
+      }
+      else if (msg.ports)
+      {
+        var portselect = document.getElementById("can_ports");
+        for (var i = 0; i < msg.ports.length; i++)
+        {
+          var option = document.createElement("option");
+          option.text = msg.ports[i];
+          option.value = msg.ports[i];
+          portselect.add(option);
+        }
+
+        portselect.selectedIndex = 0;
+        portselect.onchange = function() {setPort(this.value)};
+      }
+      else
+      {
+        alert(`${msg.message}`);
+      }
+    }
+  };
+  </script>
+</html>

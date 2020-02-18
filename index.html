@@ -92,6 +92,12 @@ th, td {
       }
 
     var startbit = (bitindex + (bytenum * 8) - bitwidth);
+    
+    if (bytenum == 1)
+    {
+      startbit = 8 - bitindex - bitwidth;
+    }
+
     intstring = intstring.substr(startbit, bitwidth);
     elem.innerText = parseInt(intstring, 2);
   }

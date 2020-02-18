@@ -17,8 +17,8 @@ th, td {
   font-family:monospace;
   white-space:pre;
 }
-.hidden {
-  display: none;
+.robotoheavy {
+  font-weight:bold;
   font-family:monospace;
   white-space:pre;
 }
@@ -35,22 +35,23 @@ th, td {
     <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
   </table>
   <hr/>
-  <span id="bytespan" class="hidden"></span>
-  <span id="hexspan" class="hidden"></span>
   <span id="binspan" class="roboto"></span>
-  <span id="bitspan" class="hidden"></span>
+  <br/>
+  <label for="val1span" class="roboto">System Status:</label>
+  <span id="systemstat" class="robotoheavy"></span>
   <br/>
   <label for="val1span" class="roboto">Channel 1:</label>
   <span id="val1span" class="roboto"></span>
+  <span id="chan1stat" class="robotoheavy"></span>
   <br/>
   <label for="val2span" class="roboto">Channel 2:</label>
   <span id="val2span" class="roboto"></span>
+  <span id="chan2stat" class="robotoheavy"></span>
   <br/>
-  <label for="sumspan" class="roboto">Sum:</label>
-  <span id="sumspan" class="roboto"></span>
-  <br/>
-  <label for="errorspan" class="roboto" style="font-weight:bold;">Error:</label>
-  <span id="errorspan" class="roboto" style="font-weight:bold;"></span>
+  <label for="errorspan" class="robotoheavy">Alignment Error:</label>
+  <span id="errorspan" class="robotoheavy"></span>
+  <hr/>
+  <span id="errorspan" class="robotoheavy">For successful callibration, system status and both channels must read as OK and Alignment Error must be below the threshold value (TBD) through the full movement</span>
 </body>
 <script>
   'use strict';
@@ -71,7 +72,7 @@ th, td {
   var bin_title = "Binary:  ";
   var bin_str;
 
-  function setVal(elem, byteindex, bitindex, bitwidth, bigendian)
+  function getVal(byteindex, bitindex, bitwidth, bigendian)
   {
     var incbyte = bigendian ? -1 : 1;
     var bytenum = Math.ceil(bitwidth / 8);
@@ -81,48 +82,125 @@ th, td {
 
     var intstring = "";
 
-      for (var bytecount = 0; bytecount < bytenum; bytecount++)
-      {
-        intstring = bytes[byte] + intstring;
-        byte += incbyte;
-      }
+    for (var bytecount = 0; bytecount < bytenum; bytecount++)
+    {
+      intstring = bytes[byte] + intstring;
+      byte += incbyte;
+    }
 
     var startbit = (bitindex + (bytenum * 8) - bitwidth);
+
+    if (bytenum == 1)
+    {
+      startbit = 8 - bitindex - bitwidth;
+    }
+
     intstring = intstring.substr(startbit, bitwidth);
-    elem.innerText = parseInt(intstring, 2);
+    
+    return parseInt(intstring, 2);
+  }
+
+  function chan_status_check(status)
+  {
+    switch(status)
+    {
+      case 0:
+        return "Disabled";
+      case 1:
+        return "OK";
+      case 2:
+        return "Error";
+      case 3:
+        return "Not available"
+    }
+  }
+
+  function sys_status_check(status)
+  {
+    if (status == 0)
+      return "OK";
+
+    var statusstr = "Error: ";
+
+    if (status & (1<<0))
+      statusstr += "'Config data' ";
+    if (status & (1<<1))
+      statusstr += "'Linearity table' ";
+    if (status & (1<<2))
+      statusstr += "'SPI' ";
+    if (status & (1<<3))
+      statusstr += "'Loop overrun' ";
+    
+    return statusstr;
+  }
+
+  function chan_error_check(status)
+  {
+    if (status == 0)
+      return "OK";
+
+    var statusstr = "Error: ";
+
+    if (status & (1<<0))
+      statusstr += "'ADC Failure' ";
+    if (status & (1<<1))
+      statusstr += "'Electrical Failure' ";
+    if (status & (1<<2))
+      statusstr += "'Gain Below Threshold' ";
+    if (status & (1<<3))
+      statusstr += "'Magnetic Field Too Weak' ";
+    if (status & (1<<4))
+      statusstr += "'Magnetic Field Too Strong' ";
+    if (status & (1<<5))
+      statusstr += "'Gain Above Threshold' ";
+    if (status & (1<<6))
+      statusstr += "'Clipping' ";
+    if (status & (1<<7))
+      statusstr += "'Over Voltage' ";
+    
+    return statusstr;
   }
 
   function putBase(elem)
   {
-    var hex_str =   "Hex:     ";
-    var bit_str =   "Bit:     ";
-    var byte_str =  "Byte:    ";
-
     var byte_count = 0;
     bin_str = "";
 
     elem.cells[2].innerText.split(" ").forEach(str => {
-      hex_str += "   " + str + "    ";
       bin_str += (parseInt(str, 16).toString(2)).padStart(8, '0') + " ";
-      bit_str += "01234567 ";
-      byte_str += "    " + byte_count + "    ";
-      byte_count += 1;
     })
 
-    hex_row.innerText = hex_str;
     bin_row.innerText = bin_title + bin_str;
-    bit_row.innerText = bit_str;
-    byte_row.innerText = byte_str;
 
     var calc_row1 = document.getElementById("val1span");
-    setVal(calc_row1, 1, 0, 14, true);
+    calc_row1.innerText = getVal(1, 0, 14, true);
+
     var calc_row2 = document.getElementById("val2span");
-    setVal(calc_row2, 3, 0, 14, true);
+    calc_row2.innerText = getVal(3, 0, 14, true);
+
+    var sysstat_row = document.getElementById("systemstat");
+    var sys_status = getVal(4, 4, 4, true);
+    sysstat_row.innerText = sys_status_check(sys_status);
+
+    var chan1stat_row = document.getElementById("chan1stat");
+    var channel1_status = getVal(4, 0, 2, true);
+    chan1stat_row.innerText = chan_status_check(channel1_status);
+    if (channel1_status != 1)
+    {
+      chan1stat_row.innerText = chan_error_check(getVal(5, 0, 8, true));
+      sysstat_row.innerText = "Channel Error";
+    }
+
+    var chan2stat_row = document.getElementById("chan2stat");
+    var channel2_status = getVal(4, 2, 2, true);
+    chan2stat_row.innerText = chan_status_check(channel2_status);
+    if (channel2_status != 1)
+    {
+      chan2stat_row.innerText = chan_error_check(getVal(6, 0, 8, true));
+      sysstat_row.innerText = "Channel Error";
+    }
 
     var sum = parseInt(calc_row1.innerText, 10) + parseInt(calc_row2.innerText, 10);
-
-    var sum_row = document.getElementById("sumspan");
-    sum_row.innerText = sum;
     var error_row = document.getElementById("errorspan");
     error_row.innerText = sum - 0x3FFF;
   };

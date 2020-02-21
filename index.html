@@ -45,7 +45,7 @@ th, td {
   <label for="bitindex" class="roboto">Start Bit:</label>
   <input type="number" id="bitindex" name="bitindex" min="0" max="7" step="1"  value="0">
   <label for="bitwidth" class="roboto">Bit width:</label>
-  <input type="number" id="bitwidth" name="bitwidth" min="1" max="64" step="1"  value="64">
+  <input type="number" id="bitwidth" name="bitwidth" min="1" max="64" step="1"  value="8">
   <label for="bigendian" class="roboto">Big Endian:</label>
   <input type="checkbox" id="bigendian" name="bigendian">
   <label for="valspan" class="roboto">Value:</label>
@@ -54,77 +54,91 @@ th, td {
 <script>
   'use strict';
   
-  var ws_url = window.location.host;
+  let ws_url = window.location.host;
   if (!ws_url)
   {
     ws_url = "localhost";
   }
   let socket = new WebSocket("ws://" + ws_url + ":8081");
   
-  var hex_row = document.getElementById("hexspan");
-  var bin_row = document.getElementById("binspan");
-  var bit_row = document.getElementById("bitspan");
-  var byte_row = document.getElementById("bytespan");
+  let hex_row = document.getElementById("hexspan");
+  let bin_row = document.getElementById("binspan");
+  let bit_row = document.getElementById("bitspan");
+  let byte_row = document.getElementById("bytespan");
 
-  var watch_row;
-  var bin_title = "Bin:  ";
-  var bin_str;
+  let watch_row;
+  let byte_array  = [];
 
   function setVal(elem)
   {
-    var bitindex = parseInt(document.getElementById("bitindex").value,10);
-    var byteindex = parseInt(document.getElementById("byteindex").value,10);
-    var bitwidth = parseInt(document.getElementById("bitwidth").value,10);
-    var bigendian = document.getElementById("bigendian").checked;
+    let bitindex = parseInt(document.getElementById("bitindex").value, 10);
+    let byteindex = parseInt(document.getElementById("byteindex").value, 10);
+    let bitwidth = parseInt(document.getElementById("bitwidth").value, 10);
+    let bigendian = document.getElementById("bigendian").checked;
 
-    var incbyte = bigendian ? -1 : 1;
-    var bytenum = Math.ceil(bitwidth / 8);
+    let bytenum = Math.ceil(bitwidth / 8);
+    let byte = byteindex;
 
-    var bytes = bin_str.split(" ");
-    var byte = byteindex;
+    let intval = 0;
 
-    var intstring = "";
+    let incdir = bigendian ? -1 : 1;
 
-      for (var bytecount = 0; bytecount < bytenum; bytecount++)
-      {
-        intstring = bytes[byte] + intstring;
-        byte += incbyte;
-      }
-
-    var startbit = (bitindex + (bytenum * 8) - bitwidth);
-    
-    if (bytenum == 1)
+    if (bitwidth <= 32)
     {
-      startbit = 8 - bitindex - bitwidth;
-    }
+      let bitmask = ((2 ** bitwidth) - 1);
+      bitmask = bitmask >> bitindex;
 
-    intstring = intstring.substr(startbit, bitwidth);
-    elem.innerText = parseInt(intstring, 2);
+      for (let bytecount = 0; bytecount < bytenum; bytecount++)
+      {
+        intval = (byte_array[byte] << (8 * bytecount)) + intval;
+
+        byte += incdir;
+      }
+      intval &= bitmask;
+    }
+    else
+    {
+      let intstring = "";
+
+      for (let bytecount = 0; bytecount < bytenum; bytecount++)
+      {
+        intstring = byte_array[byte].toString(2).padStart(8, '0') + intstring;
+        byte += incdir;
+      }
+      console.log(intstring);
+      intstring = intstring.substr(intstring.length - bitwidth);
+      console.log(intstring);
+      intval = parseInt(intstring, 2);
+    }
+    
+    elem.innerText = intval;
   }
 
   function putBase(elem)
   {
-    var hex_str =   "Hex:  ";
-    var bit_str =   "Bit:  ";
-    var byte_str =  "Byte: ";
+    let hex_str =   "Hex:  ";
+    let bit_str =   "Bit:  ";
+    let byte_str =  "Byte: ";
 
-    var byte_count = 0;
-    bin_str = "";
+    let byte_count = 0;
+    let bin_str = "Bin:  ";
 
     elem.cells[2].innerText.split(" ").forEach(str => {
       hex_str += "   " + str + "    ";
-      bin_str += (parseInt(str, 16).toString(2)).padStart(8, '0') + " ";
-      bit_str += "01234567 ";
+
+      byte_array [byte_count] = parseInt(str, 16);
+      bin_str += (byte_array[byte_count].toString(2)).padStart(8, '0') + " ";
+      bit_str += "76543210 ";
       byte_str += "    " + byte_count + "    ";
       byte_count += 1;
     })
 
     hex_row.innerText = hex_str;
-    bin_row.innerText = bin_title + bin_str;
+    bin_row.innerText = bin_str;
     bit_row.innerText = bit_str;
     byte_row.innerText = byte_str;
 
-    var calc_row = document.getElementById("valspan");
+    let calc_row = document.getElementById("valspan");
     setVal(calc_row);
   };
 
@@ -141,7 +155,7 @@ th, td {
 
   function setPort(port)
   {
-    var portmessage = {"can_port": port};
+    let portmessage = {"can_port": port};
 
     socket.send(JSON.stringify(portmessage));
   }
@@ -169,11 +183,11 @@ th, td {
 
   socket.onmessage = function(event)
   {
-    var msg = JSON.parse(event.data);
+    let msg = JSON.parse(event.data);
 
     if (msg.message == null)
     {
-      var row = document.getElementById(msg.port + "_" + msg.id);
+      let row = document.getElementById((msg.port + "_" + msg.id).toLowerCase());
       if (row != null)
       {
         row.cells[2].innerHTML = msg.data;
@@ -184,16 +198,32 @@ th, td {
       }
       else
       {
-        var cantable = document.getElementById("cantable");
-        row = cantable.insertRow(-1);
-        row.id = msg.port + "_" + msg.id;
+        let cantable = document.getElementById("cantable");
+        let rows = cantable.rows;
+        let rowindex = -1;
+        let rowid = (msg.port + "_" + msg.id).toLowerCase();
+
+        for (let i = 1; i < rows.length; i++)
+        {
+          if (rowid < rows[i].id)
+          {
+            rowindex = i;
+          }
+        }
+        row = cantable.insertRow(rowindex);
+        row.id = rowid;
         row.onclick = function() {setBase(this)};
-        var cell0 = row.insertCell(0);
-        var cell1 = row.insertCell(1);
-        var cell2 = row.insertCell(2);
+        let cell0 = row.insertCell(0);
+        let cell1 = row.insertCell(1);
+        let cell2 = row.insertCell(2);
         cell0.innerHTML = msg.port;
         cell1.innerHTML = msg.id;
         cell2.innerHTML = msg.data;
+
+        if (!watch_row)
+        {
+          setBase(row);
+        }
       }
     }
     else
@@ -204,10 +234,10 @@ th, td {
       }
       else if (msg.ports)
       {
-        var portselect = document.getElementById("can_ports");
-        for (var i = 0; i < msg.ports.length; i++)
+        let portselect = document.getElementById("can_ports");
+        for (let i = 0; i < msg.ports.length; i++)
         {
-          var option = document.createElement("option");
+          let option = document.createElement("option");
           option.text = msg.ports[i];
           option.value = msg.ports[i];
           portselect.add(option);

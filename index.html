@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>CANnibal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CANnibal</title>
 </head>
 <style>
+table, body, div {
+  width: 100%;
+}
 th, td {
   text-align:left;
   padding-right:3em;
@@ -13,44 +17,71 @@ th, td {
   font-family:monospace;
   white-space:pre;
 }
+#bitspan, #bytespan {
+  color:darkgrey;
+}
 .roboto {
+  width: 100%;
   font-family:monospace;
   white-space:pre;
 }
-#bitspan, #bytespan {
-  color:darkgrey;
+.robotoHeavy {
+  width: 100%;
+  font-family:monospace;
+  white-space:pre;
+  font-weight:bold;
+}
+.val_container {
+  width: unset;
+  display: inline-block;
 }
 </style>
 <body>
   <h2>Live Feed</h2>
   <label for="can_ports">Port:</label>
-  <select id="can_ports">
-  </select>
+  <select id="can_ports"></select>
   <table id="cantable">
     <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
   </table>
   <hr/>
-  <h2>Message Analysis</h2>
-  <span id="bytespan" class="roboto"></span>
-  <br/>
-  <span id="hexspan" class="roboto"></span>
-  <br/>
-  <span id="binspan" class="roboto"></span>
-  <br/>
-  <span id="bitspan" class="roboto"></span>
-  <br/>
-  <br/>
-  <label for="byteindex" class="roboto">Start Byte:</label>
-  <input type="number" id="byteindex" name="byteindex" min="0" max="7" step="1" value="0">
-  <label for="bitindex" class="roboto">Start Bit:</label>
-  <input type="number" id="bitindex" name="bitindex" min="0" max="7" step="1"  value="0">
-  <label for="bitwidth" class="roboto">Bit width:</label>
-  <input type="number" id="bitwidth" name="bitwidth" min="1" max="64" step="1"  value="8">
-  <label for="bigendian" class="roboto">Big Endian:</label>
-  <input type="checkbox" id="bigendian" name="bigendian">
-  <label for="valspan" class="roboto">Value:</label>
-  <span id="valspan" class="roboto"></span>
+  <div class="analysis">
+    <h2>Message Analysis</h2>
+    <span id="bytespan" class="roboto"></span>
+    <br>
+    <span id="hexspan" class="roboto"></span>
+    <br>
+    <span id="binspan" class="roboto"></span>
+    <br>
+    <span id="bitspan" class="roboto"></span>
+    <br>
+    <br>
+  </div>
+  <div id="values" style="display:none;">
+    <div id="val_0" class="val_container">
+      <label for="byteindex_0" class="roboto">Start Byte:</label>
+      <input type="number" id="byteindex_0" min="0" max="7" step="1" value="0">
+      <label for="bitindex_0" class="roboto">Start Bit:</label>
+      <input type="number" id="bitindex_0" min="0" max="7" step="1" value="0">
+      <label for="bitwidth_0" class="roboto">Bit width:</label>
+      <input type="number" id="bitwidth_0" min="1" max="64" step="1" value="8">
+      <label for="bigendian_0" class="roboto">Big Endian:</label>
+      <input type="checkbox" id="bigendian_0">
+      <label for="valspan_0" class="robotoHeavy">val0:</label>
+      <span id="valspan_0" class="robotoHeavy"></span>
+    </div>
+    <button onclick="createVal(this);" style="color:blue;">+</button>
+  </div>
+  <div id="math" style="display:none;">
+    <br>
+    <br>
+    <label for="mathexpr" class="roboto">Mathematical Expression:</label>
+    <input type="text" id="mathexpr" oninput="compileMath(this.value);" placeholder="10 * sqrt(val0) + 100">
+    <label for="mathresult" class="robotoHeavy">Result:</label>
+    <span id="mathresult" class="robotoHeavy">undefined</span>
+  </div>
+
 </body>
+<script src="math.min.js" type="text/javascript"></script>
 <script>
   'use strict';
   
@@ -65,16 +96,94 @@ th, td {
   let bin_row = document.getElementById("binspan");
   let bit_row = document.getElementById("bitspan");
   let byte_row = document.getElementById("bytespan");
+  let result_elem = document.getElementById("mathresult");
 
   let watch_row;
-  let byte_array  = [];
+  let byte_array = [];
+  let value_indexes = [0];
+  let value = [0];
+  let mathscope = {};
+  let mathcompiled = null;
 
-  function setVal(elem)
+  function compileMath(text)
   {
-    let bitindex = parseInt(document.getElementById("bitindex").value, 10);
-    let byteindex = parseInt(document.getElementById("byteindex").value, 10);
-    let bitwidth = parseInt(document.getElementById("bitwidth").value, 10);
-    let bigendian = document.getElementById("bigendian").checked;
+    mathcompiled = null;
+    try
+    {
+      mathcompiled = math.compile(text);
+    }
+    catch(err)
+    {
+      result_elem.innerText = "undefined";
+      return;
+    }
+    evalMath();
+  }
+
+  function evalMath()
+  {
+    mathscope = {};
+    value_indexes.forEach(ind => {
+      mathscope["val" + ind] = value[ind];    
+    })
+
+    result_elem.innerText = "undefined";
+    try
+    {
+      result_elem.innerText = mathcompiled.evaluate(mathscope);
+    }
+    catch(err)
+    {
+      return;
+    }
+  }
+
+  function createVal(elem)
+  {
+    let index = value_indexes[value_indexes.length - 1] + 1;
+    let parent_div = elem.parentElement;
+
+    let br = document.createElement("BR");
+    br.id = "br_" + index;
+    parent_div.insertBefore(br, elem);
+    let val_div = document.createElement("DIV");
+    val_div.id = "val_" + index;
+    val_div.innerHTML = document.getElementById("val_0").innerHTML.replace(RegExp("_0", 'g'), "_" + index).replace(RegExp("val0", 'g'), "val" + index);
+    val_div.className = "val_container"
+
+    parent_div.insertBefore(val_div, elem);
+    value_indexes.push(index);
+    value[index] = Number(document.getElementById("valspan_" + index).innerText);
+
+    let rm_val = document.createElement("BUTTON");
+    rm_val.onclick = function(){removeVal(index)};
+    rm_val.style.color = "red";
+    rm_val.innerHTML = "-";
+    val_div.appendChild(rm_val);
+  }
+
+  function removeVal(index)
+  {
+    let val_div = document.getElementById("val_" + index);
+    let br = document.getElementById("br_" + index);
+
+    let ind = value_indexes.indexOf(index);
+    if (ind > 0)
+    {
+      value_indexes.splice(ind, 1);
+      value[index] = 0;
+      val_div.parentElement.removeChild(br);
+      val_div.parentElement.removeChild(val_div);
+    }
+  }
+
+  function putVal(index)
+  {
+    let bitindex = parseInt(document.getElementById("bitindex_" + index).value, 10);
+    let byteindex = parseInt(document.getElementById("byteindex_" + index).value, 10);
+    let bitwidth = parseInt(document.getElementById("bitwidth_" + index).value, 10);
+    let bigendian = document.getElementById("bigendian_" + index).checked;
+    
 
     let bytenum = Math.ceil(bitwidth / 8);
     let byte = byteindex;
@@ -105,13 +214,13 @@ th, td {
         intstring = byte_array[byte].toString(2).padStart(8, '0') + intstring;
         byte += incdir;
       }
-      console.log(intstring);
       intstring = intstring.substr(intstring.length - bitwidth);
-      console.log(intstring);
       intval = parseInt(intstring, 2);
     }
     
-    elem.innerText = intval;
+    document.getElementById("valspan_" + index).innerText = intval;
+
+    return intval;
   }
 
   function putBase(elem)
@@ -138,8 +247,14 @@ th, td {
     bit_row.innerText = bit_str;
     byte_row.innerText = byte_str;
 
-    let calc_row = document.getElementById("valspan");
-    setVal(calc_row);
+    value_indexes.forEach(val_index => {
+      value[val_index] = putVal(val_index);
+    })
+
+    if (mathcompiled)
+    {
+      evalMath();
+    }
   };
 
   function setBase(elem)
@@ -150,6 +265,10 @@ th, td {
     }
     watch_row = elem;
     watch_row.style.backgroundColor = 'royalblue';
+
+    document.getElementById("values").style.display = 'block';
+    document.getElementById("math").style.display = 'block';
+
     putBase(elem);
   };
 
@@ -198,6 +317,26 @@ th, td {
       }
       else
       {
+        let portselect = document.getElementById("can_ports");
+        let portfound = false;
+
+        for (let i = 0, len = portselect.options.length; i < len; i++)
+        {
+          if (portselect.options[i] == msg.port)
+          {
+            portfound = true;
+            break;
+          }
+        }
+
+        if (!portfound)
+        {
+          let option = document.createElement("option");
+          option.text = msg.port;
+          option.value = msg.port;
+          portselect.add(option);
+        }
+
         let cantable = document.getElementById("cantable");
         let rows = cantable.rows;
         let rowindex = -1;

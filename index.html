@@ -279,6 +279,31 @@ th, td {
     socket.send(JSON.stringify(portmessage));
   }
 
+  function sortTable(tablename)
+  {
+  var table, rows, switching, i, x, y, shouldSwitch;
+  table = document.getElementById(tablename);
+  switching = true;
+  while (switching)
+  {
+    switching = false;
+    rows = table.rows;
+    for (i = 1; i < (rows.length - 1); i++) {
+      shouldSwitch = false;
+      x = rows[i].getElementsByTagName("TD")[0];
+      y = rows[i + 1].getElementsByTagName("TD")[0];
+      if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+        shouldSwitch = true;
+        break;
+      }
+    }
+    if (shouldSwitch) {
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+    }
+  }
+}
+
   socket.onopen = function(e)
   {
     setPort("");
@@ -317,39 +342,9 @@ th, td {
       }
       else
       {
-        let portselect = document.getElementById("can_ports");
-        let portfound = false;
-
-        for (let i = 0, len = portselect.options.length; i < len; i++)
-        {
-          if (portselect.options[i] == msg.port)
-          {
-            portfound = true;
-            break;
-          }
-        }
-
-        if (!portfound)
-        {
-          let option = document.createElement("option");
-          option.text = msg.port;
-          option.value = msg.port;
-          portselect.add(option);
-        }
-
         let cantable = document.getElementById("cantable");
-        let rows = cantable.rows;
-        let rowindex = -1;
         let rowid = (msg.port + "_" + msg.id).toLowerCase();
-
-        for (let i = 1; i < rows.length; i++)
-        {
-          if (rowid < rows[i].id)
-          {
-            rowindex = i;
-          }
-        }
-        row = cantable.insertRow(rowindex);
+        row = cantable.insertRow(-1);
         row.id = rowid;
         row.onclick = function() {setBase(this)};
         let cell0 = row.insertCell(0);
@@ -358,7 +353,7 @@ th, td {
         cell0.innerHTML = msg.port;
         cell1.innerHTML = msg.id;
         cell2.innerHTML = msg.data;
-
+        sortTable("cantable");
         if (!watch_row)
         {
           setBase(row);

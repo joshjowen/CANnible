@@ -1,68 +1,83 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>CANnibal</title>
+  <title>CANnible</title>
 </head>
 <style>
-th, td {
-  text-align:left;
-  padding-right:3em;
-}
-#cantable td {
-  cursor: pointer;
-  font-family:monospace;
-  white-space:pre;
-}
-.roboto {
-  font-family:monospace;
-  white-space:pre;
-}
-.robotoheavy {
-  font-weight:bold;
-  font-family:monospace;
-  white-space:pre;
-}
-#bitspan, #bytespan {
-  color:darkgrey;
-}
+  th,
+  td {
+    text-align: left;
+    padding-right: 3em;
+  }
+
+  #cantable td {
+    cursor: pointer;
+    font-family: monospace;
+    white-space: pre;
+  }
+
+  .roboto {
+    font-family: monospace;
+    white-space: pre;
+  }
+
+  .robotoheavy {
+    font-weight: bold;
+    font-family: monospace;
+    white-space: pre;
+  }
+
+  #bitspan,
+  #bytespan {
+    color: darkgrey;
+  }
 </style>
+
 <body>
   <h2>Live Feed</h2>
   <label for="can_ports">Port:</label>
   <select id="can_ports">
   </select>
   <table id="cantable">
-    <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
+    <tr>
+      <th>CAN Port</th>
+      <th>Message ID</th>
+      <th>Data</th>
+    </tr>
   </table>
-  <hr/>
+  <hr />
   <span id="binspan" class="roboto"></span>
-  <br/>
+  <br />
   <label for="val1span" class="roboto">System Status:</label>
   <span id="systemstat" class="robotoheavy"></span>
-  <br/>
+  <br />
   <label for="val1span" class="roboto">Channel 1:</label>
   <span id="val1span" class="roboto"></span>
   <span id="chan1stat" class="robotoheavy"></span>
-  <br/>
+  <br />
   <label for="val2span" class="roboto">Channel 2:</label>
   <span id="val2span" class="roboto"></span>
   <span id="chan2stat" class="robotoheavy"></span>
-  <br/>
+  <br />
   <label for="errorspan" class="robotoheavy">Alignment Error:</label>
   <span id="errorspan" class="robotoheavy"></span>
-  <hr/>
-  <span id="errorspan" class="robotoheavy">For successful callibration, system status and both channels must read as OK and Alignment Error magnitude must be below 10 through the full movement</span>
+  <hr />
+  <span id="errorspan" class="robotoheavy">For successful callibration, system status and both channels must read as OK
+    and Alignment Error magnitude must be below 10 through the full movement</span>
 </body>
 <script>
   'use strict';
-  
-  var ws_url = window.location.host;
-  if (!ws_url)
-  {
+
+  let ws_url = window.location.host;
+  if (!ws_url) {
     ws_url = "localhost";
   }
-  let socket = new WebSocket("ws://" + ws_url + ":8081");
-  
+
+  let socket_url = "ws://" + ws_url.split(":")[0] + ":8081";
+  console.log("opening " + socket_url);
+  let socket = new WebSocket(socket_url);
+
   var hex_row = document.getElementById("hexspan");
   var bin_row = document.getElementById("binspan");
   var bit_row = document.getElementById("bitspan");
@@ -72,8 +87,7 @@ th, td {
   var bin_title = "Binary:  ";
   var bin_str;
 
-  function getVal(byteindex, bitindex, bitwidth, bigendian)
-  {
+  function getVal(byteindex, bitindex, bitwidth, bigendian) {
     var incbyte = bigendian ? -1 : 1;
     var bytenum = Math.ceil(bitwidth / 8);
 
@@ -82,28 +96,24 @@ th, td {
 
     var intstring = "";
 
-    for (var bytecount = 0; bytecount < bytenum; bytecount++)
-    {
+    for (var bytecount = 0; bytecount < bytenum; bytecount++) {
       intstring = bytes[byte] + intstring;
       byte += incbyte;
     }
 
     var startbit = (bitindex + (bytenum * 8) - bitwidth);
 
-    if (bytenum == 1)
-    {
+    if (bytenum == 1) {
       startbit = 8 - bitindex - bitwidth;
     }
 
     intstring = intstring.substr(startbit, bitwidth);
-    
+
     return parseInt(intstring, 2);
   }
 
-  function chan_status_check(status)
-  {
-    switch(status)
-    {
+  function chan_status_check(status) {
+    switch (status) {
       case 0:
         return "Disabled";
       case 1:
@@ -115,54 +125,51 @@ th, td {
     }
   }
 
-  function sys_status_check(status)
-  {
+  function sys_status_check(status) {
     if (status == 0)
       return "OK";
 
     var statusstr = "Error: ";
 
-    if (status & (1<<0))
+    if (status & (1 << 0))
       statusstr += "'Config data' ";
-    if (status & (1<<1))
+    if (status & (1 << 1))
       statusstr += "'Linearity table' ";
-    if (status & (1<<2))
+    if (status & (1 << 2))
       statusstr += "'SPI' ";
-    if (status & (1<<3))
+    if (status & (1 << 3))
       statusstr += "'Loop overrun' ";
-    
+
     return statusstr;
   }
 
-  function chan_error_check(status)
-  {
+  function chan_error_check(status) {
     if (status == 0)
       return "OK";
 
     var statusstr = "Error: ";
 
-    if (status & (1<<0))
+    if (status & (1 << 0))
       statusstr += "'ADC Failure' ";
-    if (status & (1<<1))
+    if (status & (1 << 1))
       statusstr += "'Electrical Failure' ";
-    if (status & (1<<2))
+    if (status & (1 << 2))
       statusstr += "'Gain Below Threshold' ";
-    if (status & (1<<3))
+    if (status & (1 << 3))
       statusstr += "'Magnetic Field Too Weak' ";
-    if (status & (1<<4))
+    if (status & (1 << 4))
       statusstr += "'Magnetic Field Too Strong' ";
-    if (status & (1<<5))
+    if (status & (1 << 5))
       statusstr += "'Gain Above Threshold' ";
-    if (status & (1<<6))
+    if (status & (1 << 6))
       statusstr += "'Clipping' ";
-    if (status & (1<<7))
+    if (status & (1 << 7))
       statusstr += "'Over Voltage' ";
-    
+
     return statusstr;
   }
 
-  function putBase(elem)
-  {
+  function putBase(elem) {
     var byte_count = 0;
     bin_str = "";
 
@@ -185,8 +192,7 @@ th, td {
     var chan1stat_row = document.getElementById("chan1stat");
     var channel1_status = getVal(4, 0, 2, true);
     chan1stat_row.innerText = chan_status_check(channel1_status);
-    if (channel1_status != 1)
-    {
+    if (channel1_status != 1) {
       chan1stat_row.innerText = chan_error_check(getVal(5, 0, 8, true));
       sysstat_row.innerText = "Channel Error";
     }
@@ -194,21 +200,18 @@ th, td {
     var chan2stat_row = document.getElementById("chan2stat");
     var channel2_status = getVal(4, 2, 2, true);
     chan2stat_row.innerText = chan_status_check(channel2_status);
-    if (channel2_status != 1)
-    {
+    if (channel2_status != 1) {
       chan2stat_row.innerText = chan_error_check(getVal(6, 0, 8, true));
       sysstat_row.innerText = "Channel Error";
     }
 
-    var sum = parseInt(calc_row1.innerText, 10) + parseInt(calc_row2.innerText, 10);
+    var sum = parseInt(calc_row1.innerText, 10) - parseInt(calc_row2.innerText, 10);
     var error_row = document.getElementById("errorspan");
-    error_row.innerText = sum - 0x3FFF;
+    error_row.innerText = sum;
   };
 
-  function setBase(elem)
-  {
-    if (watch_row)
-    {
+  function setBase(elem) {
+    if (watch_row) {
       watch_row.style.backgroundColor = 'transparent';
     }
     watch_row = elem;
@@ -216,55 +219,44 @@ th, td {
     putBase(elem);
   };
 
-  function setPort(port)
-  {
-    var portmessage = {"can_port": port};
+  function setPort(port) {
+    var portmessage = { "can_port": port };
 
     socket.send(JSON.stringify(portmessage));
   }
 
-  socket.onopen = function(e)
-  {
+  socket.onopen = function (e) {
     setPort("");
   };
-  
-  socket.onclose = function(event)
-  {
-    if (event.wasClean)
-    {
+
+  socket.onclose = function (event) {
+    if (event.wasClean) {
       alert(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-    } else 
-    {
+    } else {
       alert('Connection died');
     }
   };
-  
-  socket.onerror = function(error)
-  {
+
+  socket.onerror = function (error) {
     alert(`[error] ${error.message}`);
   };
 
-  socket.onmessage = function(event)
-  {
+  socket.onmessage = function (event) {
     var msg = JSON.parse(event.data);
 
-    if (msg.message == null)
-    {
+    if (msg.message == null) {
       var row = document.getElementById(msg.port + "_" + msg.id);
-      if (row != null)
-      {
+      if (row != null) {
         row.cells[2].innerHTML = msg.data;
-        if (watch_row && watch_row.id == row.id)
-        {
+        if (watch_row && watch_row.id == row.id) {
           putBase(row);
         }
       }
-      else
-      {
+      else {
         var cantable = document.getElementById("cantable");
         row = cantable.insertRow(-1);
         row.id = msg.port + "_" + msg.id;
-        row.onclick = function() {setBase(this)};
+        row.onclick = function () { setBase(this) };
         var cell0 = row.insertCell(0);
         var cell1 = row.insertCell(1);
         var cell2 = row.insertCell(2);
@@ -273,17 +265,13 @@ th, td {
         cell2.innerHTML = msg.data;
       }
     }
-    else
-    {
-      if (msg.success)
-      {
+    else {
+      if (msg.success) {
         console.log(`${msg.message}`);
       }
-      else if (msg.ports)
-      {
+      else if (msg.ports) {
         var portselect = document.getElementById("can_ports");
-        for (var i = 0; i < msg.ports.length; i++)
-        {
+        for (var i = 0; i < msg.ports.length; i++) {
           var option = document.createElement("option");
           option.text = msg.ports[i];
           option.value = msg.ports[i];
@@ -291,13 +279,13 @@ th, td {
         }
 
         portselect.selectedIndex = 0;
-        portselect.onchange = function() {setPort(this.value)};
+        portselect.onchange = function () { setPort(this.value) };
       }
-      else
-      {
+      else {
         alert(`${msg.message}`);
       }
     }
   };
-  </script>
+</script>
+
 </html>

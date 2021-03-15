@@ -1,49 +1,65 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CANnibal</title>
+  <title>CANnible</title>
 </head>
 <style>
-table, body, div {
-  width: 100%;
-}
-th, td {
-  text-align:left;
-  padding-right:3em;
-}
-#cantable td {
-  cursor: pointer;
-  font-family:monospace;
-  white-space:pre;
-}
-#bitspan, #bytespan {
-  color:darkgrey;
-}
-.roboto {
-  width: 100%;
-  font-family:monospace;
-  white-space:pre;
-}
-.robotoHeavy {
-  width: 100%;
-  font-family:monospace;
-  white-space:pre;
-  font-weight:bold;
-}
-.val_container {
-  width: unset;
-  display: inline-block;
-}
+  table,
+  body,
+  div {
+    width: 100%;
+  }
+
+  th,
+  td {
+    text-align: left;
+    padding-right: 3em;
+  }
+
+  #cantable td {
+    cursor: pointer;
+    font-family: monospace;
+    white-space: pre;
+  }
+
+  #bitspan,
+  #bytespan {
+    color: darkgrey;
+  }
+
+  .roboto {
+    width: 100%;
+    font-family: monospace;
+    white-space: pre;
+  }
+
+  .robotoHeavy {
+    width: 100%;
+    font-family: monospace;
+    white-space: pre;
+    font-weight: bold;
+  }
+
+  .val_container {
+    width: unset;
+    display: inline-block;
+  }
 </style>
+
 <body>
   <h2>Live Feed</h2>
   <label for="can_ports">Port:</label>
   <select id="can_ports"></select>
   <table id="cantable">
-    <tr><th>CAN Port</th><th>Message ID</th><th>Data</th></tr>
+    <tr>
+      <th>CAN Port</th>
+      <th>Message ID</th>
+      <th>Data</th>
+    </tr>
   </table>
-  <hr/>
+  <hr />
   <div class="analysis">
     <h2>Message Analysis</h2>
     <span id="bytespan" class="roboto"></span>
@@ -84,14 +100,16 @@ th, td {
 <script src="math.min.js" type="text/javascript"></script>
 <script>
   'use strict';
-  
+
   let ws_url = window.location.host;
-  if (!ws_url)
-  {
+  if (!ws_url) {
     ws_url = "localhost";
   }
-  let socket = new WebSocket("ws://" + ws_url + ":8081");
-  
+
+  let socket_url = "ws://" + ws_url.split(":")[0] + ":8081";
+  console.log("opening " + socket_url);
+  let socket = new WebSocket(socket_url);
+
   let hex_row = document.getElementById("hexspan");
   let bin_row = document.getElementById("binspan");
   let bit_row = document.getElementById("bitspan");
@@ -105,41 +123,34 @@ th, td {
   let mathscope = {};
   let mathcompiled = null;
 
-  function compileMath(text)
-  {
+  function compileMath(text) {
     mathcompiled = null;
-    try
-    {
+    try {
       mathcompiled = math.compile(text);
     }
-    catch(err)
-    {
+    catch (err) {
       result_elem.innerText = "undefined";
       return;
     }
     evalMath();
   }
 
-  function evalMath()
-  {
+  function evalMath() {
     mathscope = {};
     value_indexes.forEach(ind => {
-      mathscope["val" + ind] = value[ind];    
+      mathscope["val" + ind] = value[ind];
     })
 
     result_elem.innerText = "undefined";
-    try
-    {
+    try {
       result_elem.innerText = mathcompiled.evaluate(mathscope);
     }
-    catch(err)
-    {
+    catch (err) {
       return;
     }
   }
 
-  function createVal(elem)
-  {
+  function createVal(elem) {
     let index = value_indexes[value_indexes.length - 1] + 1;
     let parent_div = elem.parentElement;
 
@@ -156,20 +167,18 @@ th, td {
     value[index] = Number(document.getElementById("valspan_" + index).innerText);
 
     let rm_val = document.createElement("BUTTON");
-    rm_val.onclick = function(){removeVal(index)};
+    rm_val.onclick = function () { removeVal(index) };
     rm_val.style.color = "red";
     rm_val.innerHTML = "-";
     val_div.appendChild(rm_val);
   }
 
-  function removeVal(index)
-  {
+  function removeVal(index) {
     let val_div = document.getElementById("val_" + index);
     let br = document.getElementById("br_" + index);
 
     let ind = value_indexes.indexOf(index);
-    if (ind > 0)
-    {
+    if (ind > 0) {
       value_indexes.splice(ind, 1);
       value[index] = 0;
       val_div.parentElement.removeChild(br);
@@ -177,13 +186,12 @@ th, td {
     }
   }
 
-  function putVal(index)
-  {
+  function putVal(index) {
     let bitindex = parseInt(document.getElementById("bitindex_" + index).value, 10);
     let byteindex = parseInt(document.getElementById("byteindex_" + index).value, 10);
     let bitwidth = parseInt(document.getElementById("bitwidth_" + index).value, 10);
     let bigendian = document.getElementById("bigendian_" + index).checked;
-    
+
 
     let bytenum = Math.ceil(bitwidth / 8);
     let byte = byteindex;
@@ -192,42 +200,37 @@ th, td {
 
     let incdir = bigendian ? -1 : 1;
 
-    if (bitwidth <= 32)
-    {
+    if (bitwidth <= 32) {
       let bitmask = ((2 ** bitwidth) - 1);
       bitmask = bitmask >> bitindex;
 
-      for (let bytecount = 0; bytecount < bytenum; bytecount++)
-      {
+      for (let bytecount = 0; bytecount < bytenum; bytecount++) {
         intval = (byte_array[byte] << (8 * bytecount)) + intval;
 
         byte += incdir;
       }
       intval &= bitmask;
     }
-    else
-    {
+    else {
       let intstring = "";
 
-      for (let bytecount = 0; bytecount < bytenum; bytecount++)
-      {
+      for (let bytecount = 0; bytecount < bytenum; bytecount++) {
         intstring = byte_array[byte].toString(2).padStart(8, '0') + intstring;
         byte += incdir;
       }
       intstring = intstring.substr(intstring.length - bitwidth);
       intval = parseInt(intstring, 2);
     }
-    
+
     document.getElementById("valspan_" + index).innerText = intval;
 
     return intval;
   }
 
-  function putBase(elem)
-  {
-    let hex_str =   "Hex:  ";
-    let bit_str =   "Bit:  ";
-    let byte_str =  "Byte: ";
+  function putBase(elem) {
+    let hex_str = "Hex:  ";
+    let bit_str = "Bit:  ";
+    let byte_str = "Byte: ";
 
     let byte_count = 0;
     let bin_str = "Bin:  ";
@@ -235,7 +238,7 @@ th, td {
     elem.cells[2].innerText.split(" ").forEach(str => {
       hex_str += "   " + str + "    ";
 
-      byte_array [byte_count] = parseInt(str, 16);
+      byte_array[byte_count] = parseInt(str, 16);
       bin_str += (byte_array[byte_count].toString(2)).padStart(8, '0') + " ";
       bit_str += "76543210 ";
       byte_str += "    " + byte_count + "    ";
@@ -251,16 +254,13 @@ th, td {
       value[val_index] = putVal(val_index);
     })
 
-    if (mathcompiled)
-    {
+    if (mathcompiled) {
       evalMath();
     }
   };
 
-  function setBase(elem)
-  {
-    if (watch_row)
-    {
+  function setBase(elem) {
+    if (watch_row) {
       watch_row.style.backgroundColor = 'transparent';
     }
     watch_row = elem;
@@ -272,81 +272,68 @@ th, td {
     putBase(elem);
   };
 
-  function setPort(port)
-  {
-    let portmessage = {"can_port": port};
+  function setPort(port) {
+    let portmessage = { "can_port": port };
 
     socket.send(JSON.stringify(portmessage));
   }
 
-  function sortTable(tablename)
-  {
-  var table, rows, switching, i, x, y, shouldSwitch;
-  table = document.getElementById(tablename);
-  switching = true;
-  while (switching)
-  {
-    switching = false;
-    rows = table.rows;
-    for (i = 1; i < (rows.length - 1); i++) {
-      shouldSwitch = false;
-      x = rows[i].getElementsByTagName("TD")[0];
-      y = rows[i + 1].getElementsByTagName("TD")[0];
-      if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-        shouldSwitch = true;
-        break;
+  function sortTable(tablename) {
+    var table, rows, switching, i, x, y, shouldSwitch;
+    table = document.getElementById(tablename);
+    switching = true;
+    while (switching) {
+      switching = false;
+      rows = table.rows;
+      for (i = 1; i < (rows.length - 1); i++) {
+        shouldSwitch = false;
+        x = rows[i].getElementsByTagName("TD")[0];
+        y = rows[i + 1].getElementsByTagName("TD")[0];
+        if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+          shouldSwitch = true;
+          break;
+        }
+      }
+      if (shouldSwitch) {
+        rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+        switching = true;
       }
     }
-    if (shouldSwitch) {
-      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
-      switching = true;
-    }
   }
-}
 
-  socket.onopen = function(e)
-  {
+  socket.onopen = function (e) {
     setPort("");
   };
-  
-  socket.onclose = function(event)
-  {
-    if (event.wasClean)
-    {
+
+  socket.onclose = function (event) {
+    if (event.wasClean) {
       alert(`Connection closed cleanly, code=${event.code} reason=${event.reason}`);
-    } else 
-    {
+    } else {
       alert('Connection died');
     }
   };
-  
-  socket.onerror = function(error)
-  {
+
+  socket.onerror = function (error) {
     alert(`[error] ${error.message}`);
   };
 
-  socket.onmessage = function(event)
-  {
+  socket.onmessage = function (event) {
     let msg = JSON.parse(event.data);
 
-    if (msg.message == null)
-    {
+    if (msg.message == null) {
       let row = document.getElementById((msg.port + "_" + msg.id).toLowerCase());
-      if (row != null)
-      {
+      if (row != null) {
         row.cells[2].innerHTML = msg.data;
-        if (watch_row && watch_row.id == row.id)
-        {
+        if (watch_row && watch_row.id == row.id) {
           putBase(row);
         }
       }
-      else
-      {
+      else {
         let cantable = document.getElementById("cantable");
         let rowid = (msg.port + "_" + msg.id).toLowerCase();
         row = cantable.insertRow(-1);
         row.id = rowid;
-        row.onclick = function() {setBase(this)};
+        row.onclick = function () { setBase(this) };
         let cell0 = row.insertCell(0);
         let cell1 = row.insertCell(1);
         let cell2 = row.insertCell(2);
@@ -354,23 +341,18 @@ th, td {
         cell1.innerHTML = msg.id;
         cell2.innerHTML = msg.data;
         sortTable("cantable");
-        if (!watch_row)
-        {
+        if (!watch_row) {
           setBase(row);
         }
       }
     }
-    else
-    {
-      if (msg.success)
-      {
+    else {
+      if (msg.success) {
         console.log(`${msg.message}`);
       }
-      else if (msg.ports)
-      {
+      else if (msg.ports) {
         let portselect = document.getElementById("can_ports");
-        for (let i = 0; i < msg.ports.length; i++)
-        {
+        for (let i = 0; i < msg.ports.length; i++) {
           let option = document.createElement("option");
           option.text = msg.ports[i];
           option.value = msg.ports[i];
@@ -378,13 +360,13 @@ th, td {
         }
 
         portselect.selectedIndex = 0;
-        portselect.onchange = function() {setPort(this.value)};
+        portselect.onchange = function () { setPort(this.value) };
       }
-      else
-      {
+      else {
         alert(`${msg.message}`);
       }
     }
   };
-  </script>
+</script>
+
 </html>

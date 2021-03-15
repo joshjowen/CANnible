@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.9 FATAL_ERROR)
-project(CANnibal)
+project(CANnible)
 
 set_property(GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS ON)
 add_definitions(-ldl)

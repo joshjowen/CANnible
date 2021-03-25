@@ -129,8 +129,8 @@ int main(int argc, char* argv[])
     FD_SET(can_socket, &rset);
 
     struct timeval timeout = {0, 500};
-
-    if (select((can_socket + 1), &rset, NULL, NULL, &timeout) > 0)
+    if (select((can_socket + 1), &rset, NULL, NULL, NULL) > 0)
+    // if (select((can_socket + 1), &rset, NULL, NULL, &timeout) > 0)
     {
       struct sockaddr_can addr;
       struct ifreq ifr;
